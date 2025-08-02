@@ -1,0 +1,23 @@
+.chrono-avatar {
+  display: inline-block;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatar-glow {
+  filter: drop-shadow(0 0 12px #00FFB2) drop-shadow(0 0 32px #00FFB2);
+  transition: filter 0.4s;
+  animation: avatar-glow-pulse 2s infinite alternate;
+}
+
+@keyframes avatar-glow-pulse {
+  0% {
+    filter: drop-shadow(0 0 8px #00FFB2) drop-shadow(0 0 12px #00FFB2);
+  }
+  60% {
+    filter: drop-shadow(0 0 28px #00FFB2) drop-shadow(0 0 56px #00FFB2);
+  }
+  100% {
+    filter: drop-shadow(0 0 12px #00FFB2) drop-shadow(0 0 32px #00FFB2);
+  }
+}
