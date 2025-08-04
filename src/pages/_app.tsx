@@ -9,7 +9,10 @@ export default function MyApp({
   Component,
   pageProps,
 }: AppProps & { pageProps: { initialSession: any } }) {
+<<<<<<< HEAD
   // we only need to call this once
+=======
+>>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
   const [supabaseClient] = useState(() => createBrowserSupabaseClient())
 
   return (
