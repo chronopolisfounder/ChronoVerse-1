@@ -64,6 +64,7 @@ const preferenceOptions = [
   'Gesture Recognition',
 ]
 
+// Revert to original getServerSideProps
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const supabaseServer = createServerClient({ req: ctx.req, res: ctx.res })
   const { data: { session } } = await supabaseServer.auth.getSession()
@@ -93,62 +94,129 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
   // Fetch user info (ID, name, avatar, email, last login)
   useEffect(() => {
     const fetchUser = async () => {
-      const { data, error } = await supabase.auth.getUser()
-      if (data.user) {
-        setUserId(data.user.id)
-        setUserEmail(data.user.email)
-        setLastLogin(data.user.last_sign_in_at || '')
-        const name =
-          (data.user.user_metadata?.avatarName as string) ||
-          (data.user.user_metadata?.full_name as string) ||
-          data.user.email ||
-          'ChronoNaut_042'
-        setUserName(name)
-        setTempName(name)
-        if (data.user.user_metadata?.avatarUrl) {
-          setAvatarUrl(data.user.user_metadata.avatarUrl)
-        } else {
-          const { data: imgUrl } = supabase.storage
-            .from(AVATAR_BUCKET)
-            .getPublicUrl(`${data.user.id}/avatar.png`)
-          if (imgUrl?.publicUrl) setAvatarUrl(imgUrl.publicUrl)
+      try {
+        console.log('Fetching user...')
+        const { data, error } = await supabase.auth.getUser()
+        
+        if (error) {
+          console.error('Error fetching user:', error)
+          setLoadingUser(false)
+          return
         }
+
+        if (data.user) {
+          console.log('User found:', data.user.id)
+          setUserId(data.user.id)
+          setUserEmail(data.user.email)
+          setLastLogin(data.user.last_sign_in_at || '')
+          
+          const name =
+            (data.user.user_metadata?.avatarName as string) ||
+            (data.user.user_metadata?.full_name as string) ||
+            data.user.email ||
+            'ChronoNaut_042'
+          
+          setUserName(name)
+          setTempName(name)
+          
+          // Check for avatar URL
+          if (data.user.user_metadata?.avatarUrl) {
+            setAvatarUrl(data.user.user_metadata.avatarUrl)
+          } else {
+            // Try to get from storage
+            const { data: imgUrl } = supabase.storage
+              .from(AVATAR_BUCKET)
+              .getPublicUrl(`${data.user.id}/avatar.png`)
+            if (imgUrl?.publicUrl) {
+              // Only set if the image actually exists (you might want to add a check)
+              setAvatarUrl(imgUrl.publicUrl)
+            }
+          }
+        } else {
+          console.log('No user found')
+        }
+      } catch (error) {
+        console.error('Error in fetchUser:', error)
+      } finally {
+        setLoadingUser(false)
       }
-      setLoadingUser(false)
-      if (error) console.error('Error fetching user:', error)
     }
     fetchUser()
   }, [])
 
-  // Save name
+  // Fixed save name function
   const saveNameToSupabase = async (name: string) => {
-    const { error } = await supabase.auth.updateUser({ data: { avatarName: name } })
-    if (error) {
-      toast.error('Failed to save name!')
+    if (!name.trim()) {
+      toast.error('Name cannot be empty!')
       return
     }
-    setUserName(name)
-    setTempName(name)
-    setEditingName(false)
-    toast.success('Avatar name updated!')
+
+    try {
+      console.log('Saving name:', name)
+      const { error } = await supabase.auth.updateUser({ 
+        data: { avatarName: name.trim() } 
+      })
+      
+      if (error) {
+        console.error('Error saving name:', error)
+        toast.error('Failed to save name!')
+        return
+      }
+      
+      setUserName(name.trim())
+      setTempName(name.trim())
+      setEditingName(false)
+      toast.success('Avatar name updated!')
+      console.log('Name saved successfully')
+    } catch (error) {
+      console.error('Error in saveNameToSupabase:', error)
+      toast.error('Failed to save name!')
+    }
   }
 
-  // Save avatar
+  // Fixed save avatar function
   const saveAvatarToSupabase = async (file: File) => {
-    if (!userId) return
-    const filePath = `${userId}/avatar.png`
-    const { error: uploadError } = await supabase.storage
-      .from(AVATAR_BUCKET)
-      .upload(filePath, file, { upsert: true, contentType: file.type })
-    if (uploadError) {
-      toast.error('Failed to upload avatar!')
+    if (!userId) {
+      toast.error('Please log in first!')
       return
     }
-    const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath)
-    if (data?.publicUrl) {
-      setAvatarUrl(data.publicUrl)
-      await supabase.auth.updateUser({ data: { avatarUrl: data.publicUrl } })
-      toast.success('Avatar updated!')
+
+    try {
+      console.log('Uploading avatar...')
+      const filePath = `${userId}/avatar.png`
+      
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(filePath, file, { upsert: true, contentType: file.type })
+      
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        toast.error('Failed to upload avatar!')
+        return
+      }
+      
+      const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath)
+      
+      if (data?.publicUrl) {
+        console.log('Avatar uploaded, updating user metadata...')
+        setAvatarUrl(data.publicUrl)
+        
+        // Update user metadata
+        const { error: updateError } = await supabase.auth.updateUser({ 
+          data: { avatarUrl: data.publicUrl } 
+        })
+        
+        if (updateError) {
+          console.error('Error updating user metadata:', updateError)
+          toast.error('Avatar uploaded but failed to save reference!')
+        } else {
+          toast.success('Avatar updated!')
+          console.log('Avatar saved successfully')
+        }
+      }
+    } catch (error) {
+      console.error('Error in saveAvatarToSupabase:', error)
+      toast.error('Failed to upload avatar!')
     }
   }
 
@@ -164,15 +232,20 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
 
   // Edit stats logic
   const onEditStats = () => {
-    setTempStats(stats)
+    setTempStats([...stats]) // Create a copy
     setEditingStats(true)
   }
+  
   const onSaveStats = () => {
-    setStats(tempStats)
+    setStats([...tempStats]) // Create a copy
     setEditingStats(false)
     toast.success('Stats updated!')
   }
-  const onCancelStats = () => setEditingStats(false)
+  
+  const onCancelStats = () => {
+    setTempStats([...stats]) // Reset to original
+    setEditingStats(false)
+  }
 
   // Theme manager button
   const handleThemeManager = () => {
@@ -203,6 +276,7 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
                 type="text"
                 value={tempName}
                 onChange={e => setTempName(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && saveNameToSupabase(tempName)}
                 className="px-2 py-1 bg-[#112] text-accent rounded border border-accent/50 outline-none w-44"
                 autoFocus
               />
@@ -232,7 +306,7 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
         input.type = 'file'
         input.accept = 'image/*'
         input.onchange = (e: any) => {
-          const file = e.target.files[0]
+          const file = e.target.files?.[0]
           if (file) saveAvatarToSupabase(file)
         }
         input.click()
@@ -242,6 +316,17 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     }),
     [editingName, tempName, userName, avatarUrl, activeTab, userId, stats]
   )
+
+  // Show loading state
+  if (loadingUser) {
+    return (
+      <div className="container mx-auto px-4 py-8 pt-24">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-xl text-accent animate-pulse">Loading Profile...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 pt-24 space-y-8">
@@ -387,11 +472,12 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
                   {editingStats && stat.key !== 'level' ? (
                     <input
                       type="number"
+                      step={stat.key === 'reputation' ? 0.1 : 1}
                       value={tempStats[i].value as number}
                       onChange={e => {
                         const newVal = stat.key === 'reputation'
-                          ? parseFloat(e.target.value)
-                          : parseInt(e.target.value, 10)
+                          ? parseFloat(e.target.value) || 0
+                          : parseInt(e.target.value, 10) || 0
                         setTempStats(ts => {
                           const arr = [...ts]
                           arr[i] = { ...arr[i], value: newVal }
