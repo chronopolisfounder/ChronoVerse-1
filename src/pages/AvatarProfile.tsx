@@ -1,27 +1,17 @@
-<<<<<<< HEAD
 // src/pages/AvatarProfile.tsx
-import React, { useEffect, useState } from 'react'
-import { GetServerSideProps } from 'next'
-import { createServerClient } from '@supabase/ssr'
-import { supabase } from '@/integrations/supabase/client'
-=======
 import React, { useEffect, useState, useMemo } from 'react'
 import { GetServerSideProps } from 'next'
 import { createServerClient } from '@supabase/ssr'
 import { supabase } from '@/integrations/supabase/client'
 import AvatarHeader, { AvatarTab } from '@/components/AvatarHeader'
 import AvatarCustomization from '@/components/AvatarCustomization'
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-<<<<<<< HEAD
-=======
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
 import {
   User as UserIcon,
   Palette,
@@ -31,44 +21,6 @@ import {
   Zap,
   Shield,
   Settings,
-<<<<<<< HEAD
-  Camera,
-  Edit
-} from 'lucide-react'
-import GlowingAvatar from '@/components/GlowingAvatar'
-
-// 1) SSR: fetch initial session for _app.tsx
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  const supabaseServer = createServerClient({ req: ctx.req, res: ctx.res })
-  const {
-    data: { session }
-  } = await supabaseServer.auth.getSession()
-
-  return {
-    props: { initialSession: session }
-  }
-}
-
-const AvatarProfile: React.FC = () => {
-  // 2) Dynamic userName state (no stray backslashes!)
-  const [userName, setUserName] = useState<string>('ChronoNaut_042')
-
-  // 3) On mount, fetch from your supabase client
-  useEffect(() => {
-    async function fetchUser() {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser()
-      console.log('Supabase user:', user)
-      if (user) {
-        const name =
-          user.user_metadata?.avatarName ||
-          user.user_metadata?.full_name ||
-          user.email ||
-          'ChronoNaut_042'
-        setUserName(name)
-      }
-=======
   Edit,
   Save,
   X,
@@ -139,7 +91,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [lastLogin, setLastLogin] = useState<string | null>(null)
 
-  // Fetch user info (ID, name, avatar, email, last login)
   useEffect(() => {
     const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser()
@@ -165,71 +116,10 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
       }
       setLoadingUser(false)
       if (error) console.error('Error fetching user:', error)
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
     }
     fetchUser()
   }, [])
 
-<<<<<<< HEAD
-  // 4) Sample data arrays
-  const biometricData = [
-    { label: 'Neural Activity', value: 87, color: 'text-blue-400' },
-    { label: 'Cardiac Rhythm', value: 72, color: 'text-red-400' },
-    { label: 'Energy Level',  value: 94, color: 'text-yellow-400' },
-    { label: 'Stress Index',  value: 23, color: 'text-green-400' }
-  ]
-  const avatarStats = [
-    { label: 'Level',      value: '42',       icon: Zap },
-    { label: 'Experience', value: '15,420 XP', icon: Activity },
-    { label: 'Reputation', value: '9.2/10',   icon: Shield },
-    { label: 'Missions',   value: '127',      icon: UserIcon }
-  ]
-
-  return (
-    <div className="container mx-auto px-4 py-8 pt-24 space-y-8">
-      {/* Profile Header */}
-      <div
-        className="relative glass-card theme-shape p-8 pb-40 overflow-hidden"
-        style={{
-          backgroundImage: `url(/lovable-uploads/756d965b-2bd7-4327-af75-be0075afe937.png)`,
-          backgroundSize:     'cover',
-          backgroundPosition: 'center',
-          backgroundBlendMode:'multiply'
-        }}
-      >
-        <div className="absolute inset-0 bg-accent/10 backdrop-blur-sm" />
-        <div className="relative z-10 flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-6">
-          <div className="relative w-32 h-32">
-            <GlowingAvatar size={128} />
-            <Button
-              size="sm"
-              className="absolute -bottom-4 -right-2 rounded-full w-8 h-8 p-0 btn-neon z-20"
-            >
-              <Camera className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="text-center md:text-left flex-1">
-            <h1 className="text-3xl font-bold mb-2 neon-text">{userName}</h1>
-            <p className="text-muted-foreground mb-4">
-              Elite Time Traveler • Dimensional Explorer • Protocol Specialist
-            </p>
-            <div className="flex flex-wrap justify-center md:justify-start gap-2">
-              <Badge variant="secondary" className="bg-accent/20">Level 42</Badge>
-              <Badge variant="secondary" className="bg-primary/20">Elite Status</Badge>
-              <Badge variant="secondary" className="bg-secondary/20">Verified</Badge>
-            </div>
-          </div>
-          <Button className="btn-neon">
-            <Edit className="w-4 h-4 mr-2" />
-            Customize Avatar
-          </Button>
-        </div>
-      </div>
-
-      {/* Tabs Section */}
-      <Tabs defaultValue="appearance" className="space-y-6 mt-12">
-=======
-  // Save name
   const saveNameToSupabase = async (name: string) => {
     const { error } = await supabase.auth.updateUser({ data: { avatarName: name } })
     if (error) {
@@ -242,7 +132,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     toast.success('Avatar name updated!')
   }
 
-  // Save avatar
   const saveAvatarToSupabase = async (file: File) => {
     if (!userId) return
     const filePath = `${userId}/avatar.png`
@@ -261,7 +150,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     }
   }
 
-  // ChronoCoin claim (demo)
   const claimCoins = async () => {
     setClaimingCoins(true)
     setTimeout(() => {
@@ -271,7 +159,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     }, 1200)
   }
 
-  // Edit stats logic
   const onEditStats = () => {
     setTempStats(stats)
     setEditingStats(true)
@@ -283,12 +170,10 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
   }
   const onCancelStats = () => setEditingStats(false)
 
-  // Theme manager button
   const handleThemeManager = () => {
     toast('Theme Manager coming soon!')
   }
 
-  // Face photo upload (demo: triggers toast)
   const handleFaceUpload = () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -297,11 +182,9 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     input.click()
   }
 
-  // Customization: Hair style & color
   const handleHairStyleChange = (e: React.ChangeEvent<HTMLSelectElement>) => setHairStyle(e.target.value)
   const handleHairColorChange = (e: React.ChangeEvent<HTMLInputElement>) => setHairColor(e.target.value)
 
-  // AvatarHeader props
   const header = useMemo(
     () => ({
       displayName: (
@@ -424,7 +307,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
         <TabsList className="relative z-10 grid w-full grid-cols-4 glass border-accent/20">
           <TabsTrigger value="appearance" className="flex items-center space-x-2">
             <Palette className="w-4 h-4" /><span>Appearance</span>
@@ -444,13 +326,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
         <TabsContent value="appearance" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="glass-card border-accent/20">
-<<<<<<< HEAD
-              <CardHeader><CardTitle>3D Avatar Viewer</CardTitle></CardHeader>
-              <CardContent>
-                <div className="aspect-square bg-secondary/20 rounded-lg flex items-center justify-center border-2 border-dashed border-accent/30">
-                  <UserIcon className="w-16 h-16 mx-auto mb-4 text-accent" />
-                  <p className="text-muted-foreground">3D Avatar Viewer</p>
-=======
               <CardHeader>
                 <CardTitle>3D Avatar Viewer</CardTitle>
               </CardHeader>
@@ -467,21 +342,10 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
                     <Badge variant="secondary">{hairStyle}</Badge>
                     <span className="w-4 h-4 rounded-full border" style={{ background: hairColor }}></span>
                   </div>
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
                 </div>
               </CardContent>
             </Card>
             <Card className="glass-card border-accent/20">
-<<<<<<< HEAD
-              <CardHeader><CardTitle>Customization</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                {['Hair Style','Facial Features','Body Type','Clothing','Accessories'].map((opt,i)=>(
-                  <div key={i} className="p-4 rounded-lg bg-secondary/20 border border-accent/20">
-                    <div className="flex items-center justify-between">
-                      <span>{opt}</span>
-                      <Button size="sm" variant="outline" className="glass border-accent/20">Edit</Button>
-                    </div>
-=======
               <CardHeader>
                 <CardTitle>Customization</CardTitle>
               </CardHeader>
@@ -490,7 +354,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
                   <div key={i} className="p-4 rounded-lg bg-secondary/20 border border-accent/20 flex items-center justify-between">
                     <span>{opt}</span>
                     <Button size="sm" variant="outline" className="glass border-accent/20">Edit</Button>
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
                   </div>
                 ))}
               </CardContent>
@@ -511,11 +374,7 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-<<<<<<< HEAD
-            {avatarStats.map((stat,i)=>(
-=======
             {(editingStats ? tempStats : stats).map((stat, i) => (
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
               <Card key={i} className="glass-card border-accent/20 text-center">
                 <CardContent className="pt-6">
                   <stat.icon className="w-8 h-8 mx-auto mb-3 text-accent" />
@@ -551,11 +410,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
         <TabsContent value="biometrics" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="glass-card border-accent/20">
-<<<<<<< HEAD
-              <CardHeader><CardTitle className="flex items-center space-x-2"><Brain className="w-5 h-5 text-accent"/><span>Neural Interface</span></CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                {biometricData.map((m,idx)=>(
-=======
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Brain className="w-5 h-5 text-accent" />
@@ -564,7 +418,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {biometricData.map((m, idx) => (
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
                   <div key={idx} className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-sm">{m.label}</span>
@@ -575,16 +428,10 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
                 ))}
               </CardContent>
             </Card>
-<<<<<<< HEAD
-            {/* Health Summary */}
-            <Card className="glass-card border-accent/20">
-              <CardHeader><CardTitle>Health Summary</CardTitle></CardHeader>
-=======
             <Card className="glass-card border-accent/20">
               <CardHeader>
                 <CardTitle>Health Summary</CardTitle>
               </CardHeader>
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
               <CardContent className="space-y-6">
                 <div className="text-center">
                   <div className="text-4xl font-bold text-green-400 mb-2">Excellent</div>
@@ -612,14 +459,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-6">
           <Card className="glass-card border-accent/20">
-<<<<<<< HEAD
-            <CardHeader><CardTitle>Avatar Preferences</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
-              {[
-                'Animation Quality','Rendering Detail','Physics Simulation',
-                'Voice Synthesis','Gesture Recognition'
-              ].map((s,idx)=>(
-=======
             <CardHeader>
               <CardTitle>Avatar Preferences</CardTitle>
             </CardHeader>
@@ -639,7 +478,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
                 </div>
               </div>
               {preferenceOptions.slice(1).map((s, idx) => (
->>>>>>> e5a7b77cb743877b495daa3d8c70ca754fb373b8
                 <div key={idx} className="flex items-center justify-between p-4 rounded-lg bg-secondary/20 border border-accent/20">
                   <span>{s}</span>
                   <div className="flex items-center space-x-2">
