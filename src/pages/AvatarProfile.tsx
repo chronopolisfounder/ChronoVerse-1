@@ -1,3 +1,4 @@
+// src/pages/avatar-profile.tsx
 import React, { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import AvatarHeader, { AvatarTab } from '@/components/AvatarHeader'
@@ -24,7 +25,7 @@ import {
   Image as ImageIcon,
   Coins as CoinsIcon,
   Sparkles,
-  LogOut
+  LogOut,
 } from 'lucide-react'
 
 const AVATAR_BUCKET = 'avatars'
@@ -63,9 +64,9 @@ const preferenceOptions = [
 ]
 
 const AvatarProfile: React.FC = () => {
-  const [userName, setUserName] = useState<string>('ChronoNaut_042')
+  const [userName, setUserName] = useState('ChronoNaut_042')
   const [editingName, setEditingName] = useState(false)
-  const [tempName, setTempName] = useState<string>('ChronoNaut_042')
+  const [tempName, setTempName] = useState('ChronoNaut_042')
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined)
   const [activeTab, setActiveTab] = useState<AvatarTab>('appearance')
   const [loadingUser, setLoadingUser] = useState(true)
@@ -83,13 +84,53 @@ const AvatarProfile: React.FC = () => {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [lastLogin, setLastLogin] = useState<string | null>(null)
 
+  // 100% Client-Side Auth Logic, always checks on mount, never SSR
   useEffect(() => {
-    const fetchUser = async () => {
-      setLoadingUser(true)
-      const { data: { session } } = await supabase.auth.getSession()
+    let isMounted = true
+    setLoadingUser(true)
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return
+      if (!data.session?.user) {
+        setIsSignedIn(false)
+        setUserId(null)
+        setUserName('ChronoNaut_042')
+        setUserEmail(null)
+        setLastLogin(null)
+        setAvatarUrl(undefined)
+        setLoadingUser(false)
+        return
+      }
+      setIsSignedIn(true)
+      setUserId(data.session.user.id)
+      setUserEmail(data.session.user.email)
+      setLastLogin(data.session.user.last_sign_in_at || '')
+      const name =
+        (data.session.user.user_metadata?.avatarName as string) ||
+        (data.session.user.user_metadata?.full_name as string) ||
+        data.session.user.email ||
+        'ChronoNaut_042'
+      setUserName(name)
+      setTempName(name)
+      if (data.session.user.user_metadata?.avatarUrl) {
+        setAvatarUrl(data.session.user.user_metadata.avatarUrl)
+      } else {
+        const { data: imgUrl } = supabase.storage
+          .from(AVATAR_BUCKET)
+          .getPublicUrl(`${data.session.user.id}/avatar.png`)
+        if (imgUrl?.publicUrl) setAvatarUrl(imgUrl.publicUrl)
+        else setAvatarUrl(undefined)
+      }
+      setLoadingUser(false)
+    })
+    // Always listen for changes to session
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) {
         setIsSignedIn(false)
-        setLoadingUser(false)
+        setUserId(null)
+        setUserName('ChronoNaut_042')
+        setUserEmail(null)
+        setLastLogin(null)
+        setAvatarUrl(undefined)
         return
       }
       setIsSignedIn(true)
@@ -109,42 +150,23 @@ const AvatarProfile: React.FC = () => {
         const { data: imgUrl } = supabase.storage
           .from(AVATAR_BUCKET)
           .getPublicUrl(`${session.user.id}/avatar.png`)
-        if (imgUrl?.publicUrl) {
-          setAvatarUrl(imgUrl.publicUrl)
-        }
-      }
-      setLoadingUser(false)
-    }
-    fetchUser()
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setIsSignedIn(true)
-        setUserId(session.user.id)
-        setUserEmail(session.user.email)
-        setLastLogin(session.user.last_sign_in_at || '')
-      } else {
-        setIsSignedIn(false)
-        setUserId(null)
-        setUserName('ChronoNaut_042')
-        setUserEmail(null)
-        setLastLogin(null)
-        setAvatarUrl(undefined)
+        if (imgUrl?.publicUrl) setAvatarUrl(imgUrl.publicUrl)
+        else setAvatarUrl(undefined)
       }
     })
     return () => {
-      listener?.subscription.unsubscribe()
+      isMounted = false
+      authListener?.subscription.unsubscribe()
     }
   }, [])
 
   const handleSignIn = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/avatar-profile',
-      },
+      options: { redirectTo: window.location.origin + '/avatar-profile' },
     })
   }
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     setIsSignedIn(false)
@@ -162,19 +184,15 @@ const AvatarProfile: React.FC = () => {
       toast.error('Name cannot be empty!')
       return
     }
-    try {
-      const { error } = await supabase.auth.updateUser({ data: { avatarName: name.trim() } })
-      if (error) {
-        toast.error('Failed to save name!')
-        return
-      }
-      setUserName(name.trim())
-      setTempName(name.trim())
-      setEditingName(false)
-      toast.success('Avatar name updated!')
-    } catch (error) {
+    const { error } = await supabase.auth.updateUser({ data: { avatarName: name.trim() } })
+    if (error) {
       toast.error('Failed to save name!')
+      return
     }
+    setUserName(name.trim())
+    setTempName(name.trim())
+    setEditingName(false)
+    toast.success('Avatar name updated!')
   }
 
   const saveAvatarToSupabase = async (file: File) => {
@@ -182,27 +200,23 @@ const AvatarProfile: React.FC = () => {
       toast.error('Please log in first!')
       return
     }
-    try {
-      const filePath = `${userId}/avatar.png`
-      const { error: uploadError } = await supabase.storage
-        .from(AVATAR_BUCKET)
-        .upload(filePath, file, { upsert: true, contentType: file.type })
-      if (uploadError) {
-        toast.error('Failed to upload avatar!')
-        return
-      }
-      const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath)
-      if (data?.publicUrl) {
-        setAvatarUrl(data.publicUrl)
-        const { error: updateError } = await supabase.auth.updateUser({ data: { avatarUrl: data.publicUrl } })
-        if (updateError) {
-          toast.error('Avatar uploaded but failed to save reference!')
-        } else {
-          toast.success('Avatar updated!')
-        }
-      }
-    } catch (error) {
+    const filePath = `${userId}/avatar.png`
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(filePath, file, { upsert: true, contentType: file.type })
+    if (uploadError) {
       toast.error('Failed to upload avatar!')
+      return
+    }
+    const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath)
+    if (data?.publicUrl) {
+      setAvatarUrl(data.publicUrl)
+      const { error: updateError } = await supabase.auth.updateUser({ data: { avatarUrl: data.publicUrl } })
+      if (updateError) {
+        toast.error('Avatar uploaded but failed to save reference!')
+      } else {
+        toast.success('Avatar updated!')
+      }
     }
   }
 
@@ -242,6 +256,7 @@ const AvatarProfile: React.FC = () => {
   const handleHairStyleChange = (e: React.ChangeEvent<HTMLSelectElement>) => setHairStyle(e.target.value)
   const handleHairColorChange = (e: React.ChangeEvent<HTMLInputElement>) => setHairColor(e.target.value)
 
+  // AvatarHeader with built-in fallback placeholder icon if avatarUrl missing!
   const header = useMemo(
     () => ({
       displayName: (
@@ -274,6 +289,8 @@ const AvatarProfile: React.FC = () => {
         </span>
       ),
       avatarUrl,
+      // This function will be used in AvatarHeader to render a fallback if avatarUrl is undefined/null
+      avatarFallback: <UserIcon className="w-20 h-20 text-accent animate-pulse" />,
       level: stats[0].value,
       statusLabel: 'Elite Status',
       verified: true,
@@ -293,6 +310,7 @@ const AvatarProfile: React.FC = () => {
     [editingName, tempName, userName, avatarUrl, activeTab, userId, stats]
   )
 
+  // Loading state (no redirects, no blinking, no SSR race)
   if (loadingUser) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
@@ -303,6 +321,7 @@ const AvatarProfile: React.FC = () => {
     )
   }
 
+  // Sign in prompt
   if (!isSignedIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh]">
@@ -423,7 +442,13 @@ const AvatarProfile: React.FC = () => {
                     boxShadow: `0 0 40px 4px ${biometricData[0].color.replace('text-', '').replace('-400', '')}44`
                   }}
                 >
-                  <UserIcon className="w-16 h-16 mx-auto mb-4 text-accent" />
+                  {avatarUrl
+                    ? (<img
+                        src={avatarUrl}
+                        alt="Avatar"
+                        className="w-24 h-24 rounded-full object-cover mb-4"
+                      />)
+                    : (<UserIcon className="w-16 h-16 mx-auto mb-4 text-accent animate-pulse" />)}
                   <p className="text-muted-foreground">3D Avatar Viewer</p>
                   <div className="absolute bottom-4 right-4 flex gap-2">
                     <Badge variant="secondary">{hairStyle}</Badge>
@@ -548,7 +573,6 @@ const AvatarProfile: React.FC = () => {
               <CardTitle>Avatar Preferences</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* ChronoVerse: Animation Quality slider */}
               <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/20 border border-accent/20">
                 <span>Animation Quality</span>
                 <div className="flex items-center space-x-3 w-48">
