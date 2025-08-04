@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,22 +8,24 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AvatarProfile from '@/pages/AvatarProfile';
 
-const AvatarAuthGuard = () => {
+const AvatarAuthGuard: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]         = useState<User | null>(null);
+  const [loading, setLoading]   = useState(true);
   const [avatarName, setAvatarName] = useState('');
-  const [bio, setBio] = useState('');
-  const [updating, setUpdating] = useState(false);
+  const [bio, setBio]               = useState('');
+  const [updating, setUpdating]     = useState(false);
 
   useEffect(() => {
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      (_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
       }
     );
 
+    // Fetch initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -33,29 +35,71 @@ const AvatarAuthGuard = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
+  // Determine if user needs to fill out avatarName + bio
+  const needsProfileCompletion =
+    user &&
+    (!user.user_metadata?.avatarName || !user.user_metadata?.bio);
+
+  // 1) Update profile metadata (avatarName & bio)
+  const handleUpdateProfile = async (e: FormEvent) => {
     e.preventDefault();
     if (!user || !avatarName.trim() || !bio.trim()) return;
 
     setUpdating(true);
     try {
       const { error } = await supabase.auth.updateUser({
-        data: {
-          avatarName: avatarName.trim(),
-          bio: bio.trim()
-        }
+        data: { avatarName: avatarName.trim(), bio: bio.trim() }
       });
       if (error) throw error;
-    } catch (error) {
-      console.error('Error updating profile:', error);
+    } catch (err) {
+      console.error('Error updating profile:', err);
     } finally {
       setUpdating(false);
     }
   };
 
-  const needsProfileCompletion = user && 
-    (!user.user_metadata?.avatarName || !user.user_metadata?.bio);
+  // 2) Sign in with email/password
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email    = (form.elements.namedItem('email') as HTMLInputElement).value;
+    const password = (form.elements.namedItem('password') as HTMLInputElement).value;
 
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) console.error('Login error:', error.message);
+    } catch (err) {
+      console.error('Login exception:', err);
+    }
+  };
+
+  // 3) OAuth sign-in (Google / GitHub)
+  const handleOAuth = (provider: 'google' | 'github') => {
+    supabase.auth.signInWithOAuth({ provider });
+  };
+
+  // 4) Email sign-up prompt
+  const handleSignUp = () => {
+    const email    = prompt('Enter your email for sign up:');
+    const password = prompt('Enter your password:');
+    if (email && password) {
+      supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          // Supabase will use your Dashboard Site URL & Redirect URLs
+          emailRedirectTo: `${window.location.origin}/avatar-profile`
+        }
+      });
+    }
+  };
+
+  // 5) Logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Loading spinner
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -64,11 +108,12 @@ const AvatarAuthGuard = () => {
     );
   }
 
+  // Not signed in → login / OAuth / sign-up
   if (!session || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" 
-           style={{ 
-             background: 'linear-gradient(135deg, rgba(0,0,0,0.9) 0%, rgba(20,20,20,0.8) 100%)',
+      <div className="min-h-screen flex items-center justify-center p-4"
+           style={{
+             background: 'linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,20,20,0.8))',
              backdropFilter: 'blur(20px)'
            }}>
         <Card className="w-full max-w-md glass-card border-accent/20">
@@ -76,38 +121,23 @@ const AvatarAuthGuard = () => {
             <CardTitle className="text-2xl neon-text">ChronoVerse Access</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <Button 
-                onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}
-                className="w-full btn-neon"
-              >
-                Continue with Google
-              </Button>
-              <Button 
-                onClick={() => supabase.auth.signInWithOAuth({ provider: 'github' })}
-                className="w-full btn-neon"
-                variant="outline"
-              >
-                Continue with GitHub
-              </Button>
-            </div>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
+            <Button onClick={() => handleOAuth('google')} className="w-full btn-neon">
+              Continue with Google
+            </Button>
+            <Button onClick={() => handleOAuth('github')} className="w-full btn-neon" variant="outline">
+              Continue with GitHub
+            </Button>
+
+            <div className="relative my-4">
+              <span className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-accent/20" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with email
-                </span>
-              </div>
+              </span>
+              <span className="relative flex justify-center text-xs uppercase bg-background px-2 text-muted-foreground">
+                Or continue with email
+              </span>
             </div>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const email = formData.get('email') as string;
-              const password = formData.get('password') as string;
-              supabase.auth.signInWithPassword({ email, password });
-            }} className="space-y-4">
+
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" name="email" type="email" required />
@@ -120,23 +150,9 @@ const AvatarAuthGuard = () => {
                 Sign In
               </Button>
             </form>
-            <div className="text-center">
-              <Button 
-                variant="link" 
-                onClick={() => {
-                  const email = prompt('Enter your email for sign up:');
-                  const password = prompt('Enter your password:');
-                  if (email && password) {
-                    supabase.auth.signUp({ 
-                      email, 
-                      password,
-                      options: {
-                        emailRedirectTo: `${window.location.origin}/`
-                      }
-                    });
-                  }
-                }}
-              >
+
+            <div className="text-center mt-2">
+              <Button variant="link" onClick={handleSignUp}>
                 Don't have an account? Sign up
               </Button>
             </div>
@@ -146,11 +162,12 @@ const AvatarAuthGuard = () => {
     );
   }
 
+  // Signed in but profile incomplete → complete profile form
   if (needsProfileCompletion) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
-           style={{ 
-             background: 'linear-gradient(135deg, rgba(0,0,0,0.9) 0%, rgba(20,20,20,0.8) 100%)',
+           style={{
+             background: 'linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,20,20,0.8))',
              backdropFilter: 'blur(20px)'
            }}>
         <Card className="w-full max-w-md glass-card border-accent/20">
@@ -164,7 +181,7 @@ const AvatarAuthGuard = () => {
                 <Input
                   id="avatarName"
                   value={avatarName}
-                  onChange={(e) => setAvatarName(e.target.value)}
+                  onChange={e => setAvatarName(e.target.value)}
                   placeholder="Enter your avatar name"
                   required
                 />
@@ -174,16 +191,12 @@ const AvatarAuthGuard = () => {
                 <Textarea
                   id="bio"
                   value={bio}
-                  onChange={(e) => setBio(e.target.value)}
+                  onChange={e => setBio(e.target.value)}
                   placeholder="Tell us about yourself"
                   required
                 />
               </div>
-              <Button 
-                type="submit" 
-                className="w-full btn-neon"
-                disabled={updating || !avatarName.trim() || !bio.trim()}
-              >
+              <Button type="submit" className="w-full btn-neon" disabled={updating}>
                 {updating ? 'Saving...' : 'Complete Profile'}
               </Button>
             </form>
@@ -193,7 +206,17 @@ const AvatarAuthGuard = () => {
     );
   }
 
-  return <AvatarProfile />;
+  // Fully signed in & profile complete → show AvatarProfile
+  return (
+    <>
+      <div className="absolute top-4 right-4 z-50">
+        <Button onClick={handleLogout} className="p-2 rounded bg-[var(--primary)] text-white">
+          Logout
+        </Button>
+      </div>
+      <AvatarProfile />
+    </>
+  );
 };
 
 export default AvatarAuthGuard;

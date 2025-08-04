@@ -91,7 +91,6 @@ export default function AvatarAuthGuard() {
             </button>
           </form>
           
-          {/* Google Sign-In Button */}
           <div className="mt-4">
             <button 
               onClick={handleGoogleSignIn}
