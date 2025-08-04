@@ -32,7 +32,9 @@ const AVATAR_BUCKET = 'avatars'
 
 type BiometricMetric = { label: string; value: number; color: string }
 type StatItem = { label: string; value: string | number; icon: React.ComponentType<any>; key: string }
-type AvatarProfileProps = {}
+type AvatarProfileProps = {
+  initialSession?: any // Optional, SSR support
+}
 
 const biometricData: BiometricMetric[] = [
   { label: 'Neural Activity', value: 87, color: 'text-blue-400' },
@@ -64,11 +66,32 @@ const preferenceOptions = [
   'Gesture Recognition',
 ]
 
-// Revert to original getServerSideProps
+// --- Supabase SSR: Claude's more robust getServerSideProps
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  const supabaseServer = createServerClient({ req: ctx.req, res: ctx.res })
-  const { data: { session } } = await supabaseServer.auth.getSession()
-  return { props: { initialSession: session } }
+  try {
+    const supabaseServer = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return ctx.req.cookies[name]
+          },
+        },
+      }
+    )
+
+    const { data: { session }, error } = await supabaseServer.auth.getSession()
+
+    if (error) {
+      console.error('getServerSideProps error:', error)
+    }
+
+    return { props: { initialSession: session ?? null } }
+  } catch (error) {
+    console.error('getServerSideProps catch:', error)
+    return { props: { initialSession: null } }
+  }
 }
 
 const AvatarProfile: React.FC<AvatarProfileProps> = () => {
@@ -91,52 +114,38 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [lastLogin, setLastLogin] = useState<string | null>(null)
 
-  // Fetch user info (ID, name, avatar, email, last login)
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        console.log('Fetching user...')
         const { data, error } = await supabase.auth.getUser()
-        
         if (error) {
-          console.error('Error fetching user:', error)
           setLoadingUser(false)
           return
         }
-
         if (data.user) {
-          console.log('User found:', data.user.id)
           setUserId(data.user.id)
           setUserEmail(data.user.email)
           setLastLogin(data.user.last_sign_in_at || '')
-          
           const name =
             (data.user.user_metadata?.avatarName as string) ||
             (data.user.user_metadata?.full_name as string) ||
             data.user.email ||
             'ChronoNaut_042'
-          
           setUserName(name)
           setTempName(name)
-          
-          // Check for avatar URL
           if (data.user.user_metadata?.avatarUrl) {
             setAvatarUrl(data.user.user_metadata.avatarUrl)
           } else {
-            // Try to get from storage
             const { data: imgUrl } = supabase.storage
               .from(AVATAR_BUCKET)
               .getPublicUrl(`${data.user.id}/avatar.png`)
             if (imgUrl?.publicUrl) {
-              // Only set if the image actually exists (you might want to add a check)
               setAvatarUrl(imgUrl.publicUrl)
             }
           }
-        } else {
-          console.log('No user found')
         }
       } catch (error) {
-        console.error('Error in fetchUser:', error)
+        // nothing
       } finally {
         setLoadingUser(false)
       }
@@ -144,83 +153,55 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     fetchUser()
   }, [])
 
-  // Fixed save name function
   const saveNameToSupabase = async (name: string) => {
     if (!name.trim()) {
       toast.error('Name cannot be empty!')
       return
     }
-
     try {
-      console.log('Saving name:', name)
-      const { error } = await supabase.auth.updateUser({ 
-        data: { avatarName: name.trim() } 
-      })
-      
+      const { error } = await supabase.auth.updateUser({ data: { avatarName: name.trim() } })
       if (error) {
-        console.error('Error saving name:', error)
         toast.error('Failed to save name!')
         return
       }
-      
       setUserName(name.trim())
       setTempName(name.trim())
       setEditingName(false)
       toast.success('Avatar name updated!')
-      console.log('Name saved successfully')
     } catch (error) {
-      console.error('Error in saveNameToSupabase:', error)
       toast.error('Failed to save name!')
     }
   }
 
-  // Fixed save avatar function
   const saveAvatarToSupabase = async (file: File) => {
     if (!userId) {
       toast.error('Please log in first!')
       return
     }
-
     try {
-      console.log('Uploading avatar...')
       const filePath = `${userId}/avatar.png`
-      
       const { error: uploadError } = await supabase.storage
         .from(AVATAR_BUCKET)
         .upload(filePath, file, { upsert: true, contentType: file.type })
-      
       if (uploadError) {
-        console.error('Upload error:', uploadError)
         toast.error('Failed to upload avatar!')
         return
       }
-      
       const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath)
-      
       if (data?.publicUrl) {
-        console.log('Avatar uploaded, updating user metadata...')
         setAvatarUrl(data.publicUrl)
-        
-        // Update user metadata
-        const { error: updateError } = await supabase.auth.updateUser({ 
-          data: { avatarUrl: data.publicUrl } 
-        })
-        
+        const { error: updateError } = await supabase.auth.updateUser({ data: { avatarUrl: data.publicUrl } })
         if (updateError) {
-          console.error('Error updating user metadata:', updateError)
           toast.error('Avatar uploaded but failed to save reference!')
         } else {
           toast.success('Avatar updated!')
-          console.log('Avatar saved successfully')
         }
       }
     } catch (error) {
-      console.error('Error in saveAvatarToSupabase:', error)
       toast.error('Failed to upload avatar!')
     }
   }
 
-  // ChronoCoin claim (demo)
   const claimCoins = async () => {
     setClaimingCoins(true)
     setTimeout(() => {
@@ -230,29 +211,24 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     }, 1200)
   }
 
-  // Edit stats logic
   const onEditStats = () => {
-    setTempStats([...stats]) // Create a copy
+    setTempStats([...stats])
     setEditingStats(true)
   }
-  
   const onSaveStats = () => {
-    setStats([...tempStats]) // Create a copy
+    setStats([...tempStats])
     setEditingStats(false)
     toast.success('Stats updated!')
   }
-  
   const onCancelStats = () => {
-    setTempStats([...stats]) // Reset to original
+    setTempStats([...stats])
     setEditingStats(false)
   }
 
-  // Theme manager button
   const handleThemeManager = () => {
     toast('Theme Manager coming soon!')
   }
 
-  // Face photo upload (demo: triggers toast)
   const handleFaceUpload = () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -261,11 +237,9 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     input.click()
   }
 
-  // Customization: Hair style & color
   const handleHairStyleChange = (e: React.ChangeEvent<HTMLSelectElement>) => setHairStyle(e.target.value)
   const handleHairColorChange = (e: React.ChangeEvent<HTMLInputElement>) => setHairColor(e.target.value)
 
-  // AvatarHeader props
   const header = useMemo(
     () => ({
       displayName: (
@@ -317,7 +291,6 @@ const AvatarProfile: React.FC<AvatarProfileProps> = () => {
     [editingName, tempName, userName, avatarUrl, activeTab, userId, stats]
   )
 
-  // Show loading state
   if (loadingUser) {
     return (
       <div className="container mx-auto px-4 py-8 pt-24">
