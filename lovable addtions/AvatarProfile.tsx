@@ -276,12 +276,11 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
       };
       reader.readAsDataURL(file);
       if (typeof (User as any).uploadAvatar === 'function') {
-        // Use the provided uploadAvatar method if available. This function
-        // should handle uploading the file to Supabase storage and updating
-        // the user's profile with the resulting URL.
         await (User as any).uploadAvatar(file);
+      } else {
+        // Fallback: attempt to update avatar directly via updateMyUserData
+        await User.updateMyUserData({ avatar: file });
       }
-      // Refresh the user from the backend to reflect any uploaded avatar.
       const updated = await User.me();
       if (updated) setUser(updated);
       // Clear the local preview after the upload completes so the new

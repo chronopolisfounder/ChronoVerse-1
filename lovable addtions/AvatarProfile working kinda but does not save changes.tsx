@@ -1,5 +1,5 @@
 import { GetServerSideProps, NextPage } from 'next';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 // Import the Supabase SSR client instead of the deprecated auth helpers. The
 // ssr package provides utilities for creating a server‑side Supabase client
 // that uses cookies for authentication. This avoids relying on the
@@ -23,23 +23,10 @@ const renderAvatarSVG = (config: {
   skinTone: number;
   hairColor: number;
   eyeColor: number;
-  hairColorHex?: string;
-  skinToneHex?: string;
-  eyeColorHex?: string;
 }) => {
-  // Define fallback palettes for each attribute. These arrays are used when
-  // no custom colour is provided via the corresponding Hex property. Each
-  // index is 1‑based to align with our slider values (1‑N). When adding
-  // additional palette options ensure the slider max values are adjusted.
   const skinTones = ['#F5DEB3', '#DEB887', '#CD853F', '#A0522D', '#8B4513', '#654321'];
   const hairColours = ['#000000', '#8B4513', '#DAA520', '#FF6347', '#9370DB', '#00CED1'];
   const eyeColours = ['#000000', '#8B4513', '#228B22', '#4169E1', '#9370DB'];
-  // Resolve the final colours. If a custom hex is provided use it, otherwise
-  // fallback to the palette using the numeric index. The minus one offset
-  // converts slider values (1‑based) to array indices.
-  const skinColour = config.skinToneHex ?? skinTones[config.skinTone - 1];
-  const hairColour = config.hairColorHex ?? hairColours[config.hairColor - 1];
-  const eyeColour = config.eyeColorHex ?? eyeColours[config.eyeColor - 1];
   return (
     <svg width="200" height="240" viewBox="0 0 200 240" className="mx-auto">
       {/* Radial gradient for subtle background glow */}
@@ -51,24 +38,30 @@ const renderAvatarSVG = (config: {
       </defs>
       <rect width="200" height="240" rx="20" fill="url(#bgGradient)" />
       {/* Head */}
-      <ellipse cx="100" cy="80" rx="45" ry="50" fill={skinColour} />
+      <ellipse cx="100" cy="80" rx="45" ry="50" fill={skinTones[config.skinTone - 1]} />
       {/* Hair */}
-      {/* Draw a more natural hair shape: a large curved top covering the head and sides */}
       <path
-        d="M50 40 C60 20 140 20 150 40 L150 60 Q100 20 50 60 Z"
-        fill={hairColour}
+        d="M55 60 Q100 30 145 60 Q145 45 100 40 Q55 45 55 60 Z"
+        fill={hairColours[config.hairColor - 1]}
       />
       {/* Eyes */}
       <ellipse cx="85" cy="75" rx="5" ry="7" fill="white" />
       <ellipse cx="115" cy="75" rx="5" ry="7" fill="white" />
-      <circle cx="85" cy="75" r="3" fill={eyeColour} />
-      <circle cx="115" cy="75" r="3" fill={eyeColour} />
+      <circle cx="85" cy="75" r="3" fill={eyeColours[config.eyeColor - 1]} />
+      <circle cx="115" cy="75" r="3" fill={eyeColours[config.eyeColor - 1]} />
       {/* Nose */}
-      <ellipse cx="100" cy="85" rx="2" ry="4" fill={skinColour} opacity="0.8" />
+      <ellipse
+        cx="100"
+        cy="85"
+        rx="2"
+        ry="4"
+        fill={skinTones[config.skinTone - 1]}
+        opacity="0.8"
+      />
       {/* Mouth */}
       <path
         d="M90 95 Q100 105 110 95"
-        stroke={skinColour}
+        stroke={skinTones[config.skinTone - 1]}
         strokeWidth="2"
         fill="none"
         opacity="0.8"
@@ -76,8 +69,22 @@ const renderAvatarSVG = (config: {
       {/* Body */}
       <rect x="70" y="120" width="60" height="80" rx="10" fill="#4F46E5" />
       {/* Arms */}
-      <rect x="50" y="130" width="20" height="50" rx="10" fill={skinColour} />
-      <rect x="130" y="130" width="20" height="50" rx="10" fill={skinColour} />
+      <rect
+        x="50"
+        y="130"
+        width="20"
+        height="50"
+        rx="10"
+        fill={skinTones[config.skinTone - 1]}
+      />
+      <rect
+        x="130"
+        y="130"
+        width="20"
+        height="50"
+        rx="10"
+        fill={skinTones[config.skinTone - 1]}
+      />
       {/* Health aura animation */}
       <circle
         cx="100"
@@ -99,13 +106,6 @@ interface AvatarConfig {
   skinTone: number;
   hairColor: number;
   eyeColor: number;
-  // When custom colours are chosen via the colour picker, these
-  // properties hold the hex codes. When undefined the palette index is
-  // used. This allows the user to choose any colour via a colour
-  // wheel while still supporting the predefined palette.
-  hairColorHex?: string;
-  skinToneHex?: string;
-  eyeColorHex?: string;
 }
 
 interface AvatarProfileProps {
@@ -124,65 +124,11 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
         skinTone: initialUser.avatar_config.skinTone ?? 3,
         hairColor: initialUser.avatar_config.hairColor ?? 1,
         eyeColor: initialUser.avatar_config.eyeColor ?? 1,
-        hairColorHex: initialUser.avatar_config.hairColorHex ?? undefined,
-        skinToneHex: initialUser.avatar_config.skinToneHex ?? undefined,
-        eyeColorHex: initialUser.avatar_config.eyeColorHex ?? undefined,
       };
     }
     return { skinTone: 3, hairColor: 1, eyeColor: 1 };
   });
   const [saving, setSaving] = useState(false);
-
-  // Editing state for the user's display name. When editingName is true
-  // an input appears allowing the user to update their name. nameInput
-  // holds the working value. savingName controls the disabled state of
-  // the save button during the request.
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(() => initialUser?.name ?? '');
-  const [savingName, setSavingName] = useState(false);
-
-  // A ref to the hidden file input used for avatar uploads. uploading
-  // indicates whether an upload is in progress.
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // A local preview of the uploaded avatar. When a file is selected this
-  // holds a data URL representation which is displayed over the
-  // GlowingAvatar. After a successful upload we clear this preview so
-  // the new avatar from the server is shown instead.
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-
-  // Load persisted avatar configuration from localStorage if present. This
-  // ensures that customised attributes persist across navigation even when
-  // backend updates fail. It runs whenever the user id changes.
-  useEffect(() => {
-    if (user?.id) {
-      try {
-        const stored = localStorage.getItem(`avatarConfig-${user.id}`);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setAvatarConfig((prev) => ({ ...prev, ...parsed }));
-        }
-      } catch {
-        /* ignore parsing errors */
-      }
-    }
-  }, [user?.id]);
-
-  // Persist the avatar configuration to localStorage whenever it changes. This
-  // allows custom selections (including colour pickers) to persist across
-  // navigation without requiring an explicit save action. The configuration
-  // is keyed by the user id so multiple users on the same device do not
-  // collide. We avoid writing to localStorage if there is no user.
-  useEffect(() => {
-    if (user?.id) {
-      try {
-        localStorage.setItem(`avatarConfig-${user.id}`, JSON.stringify(avatarConfig));
-      } catch {
-        /* ignore localStorage errors */
-      }
-    }
-  }, [avatarConfig, user?.id]);
 
   // Memoised lists for biometric and stat displays. These values are static
   // placeholders but can be easily replaced with live data from your API. They
@@ -212,87 +158,10 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
   const saveAvatar = async () => {
     setSaving(true);
     try {
-      // Persist only supported fields to the backend. Unknown properties such
-      // as hairColorHex are not sent to avoid server side validation errors.
-      const serverConfig: any = {
-        skinTone: avatarConfig.skinTone,
-        hairColor: avatarConfig.hairColor,
-        eyeColor: avatarConfig.eyeColor,
-      };
-      await User.updateMyUserData({ avatar_config: serverConfig });
-      setUser((prev: any) => ({ ...prev, avatar_config: { ...prev?.avatar_config, ...serverConfig } }));
-      // Persist the full configuration locally so that changes survive
-      // navigation even if the server update fails or is unavailable.
-      if (user?.id) {
-        try {
-          localStorage.setItem(`avatarConfig-${user.id}`, JSON.stringify(avatarConfig));
-        } catch {
-          /* ignore localStorage errors */
-        }
-      }
+      await User.updateMyUserData({ avatar_config: avatarConfig });
+      setUser((prev: any) => ({ ...prev, avatar_config: avatarConfig }));
     } finally {
       setSaving(false);
-    }
-  };
-
-  // Predefined hair palette for colour selection and colour picker default
-  const hairPalette = ['#000000', '#8B4513', '#DAA520', '#FF6347', '#9370DB', '#00CED1'];
-
-  // Persist an updated display name to the server. When complete the
-  // editing state is reset and the local user is updated. Errors are
-  // swallowed to avoid breaking the UI.
-  const saveName = async () => {
-    if (!nameInput || nameInput === user?.name) {
-      setEditingName(false);
-      return;
-    }
-    setSavingName(true);
-    try {
-      await User.updateMyUserData({ name: nameInput });
-      setUser((prev: any) => ({ ...prev, name: nameInput }));
-      setEditingName(false);
-    } finally {
-      setSavingName(false);
-    }
-  };
-
-  // Handle file selection for avatar uploads. Reads the selected file and
-  // sends it to the server via a presumed upload method. After uploading
-  // we fetch the user again to reflect the new avatar. Errors are
-  // swallowed silently; the UI will not crash.
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      // Generate a local preview of the selected image. This enables the user
-      // to see the chosen file immediately while the upload is in progress.
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        if (typeof result === 'string') {
-          setAvatarPreview(result);
-        }
-      };
-      reader.readAsDataURL(file);
-      if (typeof (User as any).uploadAvatar === 'function') {
-        // Use the provided uploadAvatar method if available. This function
-        // should handle uploading the file to Supabase storage and updating
-        // the user's profile with the resulting URL.
-        await (User as any).uploadAvatar(file);
-      }
-      // Refresh the user from the backend to reflect any uploaded avatar.
-      const updated = await User.me();
-      if (updated) setUser(updated);
-      // Clear the local preview after the upload completes so the new
-      // avatar from the server is rendered by GlowingAvatar
-      setAvatarPreview(null);
-    } catch {
-      // ignore upload errors
-    } finally {
-      setUploading(false);
-      // reset input value so the same file can be selected again if desired
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -318,76 +187,21 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
           <div className="relative w-32 h-32">
             {/* The glowing avatar handles showing either the user uploaded avatar or a placeholder */}
             <GlowingAvatar size={128} />
-            {/* If a local preview is present, overlay it on the avatar container. */}
-            {avatarPreview && (
-              <img
-                src={avatarPreview}
-                alt="New avatar preview"
-                className="absolute inset-0 w-full h-full object-cover rounded-full"
-              />
-            )}
-            {/* Hidden file input for avatar uploads */}
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={handleFileChange}
-            />
             <Button
               size="sm"
               className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 btn-neon"
               onClick={() => {
-                if (!uploading) fileInputRef.current?.click();
+                /* implement avatar upload behaviour here */
               }}
             >
               <Camera className="w-4 h-4" />
             </Button>
           </div>
-          <div className="text-center md:text-left flex-1 space-y-2">
-            {/* Display name and editing controls */}
-            {editingName ? (
-              <div className="flex flex-col md:flex-row md:items-center gap-2">
-                <input
-                  type="text"
-                  className="input px-3 py-2 rounded-md border border-accent/40 bg-transparent focus:outline-none w-full md:w-auto"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="Enter your name"
-                />
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={saveName} disabled={savingName} className="btn-neon">
-                    {savingName ? 'Saving…' : 'Save'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingName(false);
-                      setNameInput(user?.name ?? '');
-                    }}
-                    className="glass border-accent/20"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold neon-text">
-                  {user?.name || 'ChronoNaut_042'}
-                </h1>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="glass border-accent/20"
-                  onClick={() => setEditingName(true)}
-                >
-                  Edit Name
-                </Button>
-              </div>
-            )}
-            <p className="text-muted-foreground">
+          <div className="text-center md:text-left flex-1">
+            <h1 className="text-3xl font-bold mb-2 neon-text">
+              {user?.name || 'ChronoNaut_042'}
+            </h1>
+            <p className="text-muted-foreground mb-4">
               Elite Time Traveler • Dimensional Explorer • Protocol Specialist
             </p>
             <div className="flex flex-wrap justify-center md:justify-start gap-2">
@@ -454,8 +268,8 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
                 <CardDescription>Adjust your appearance attributes</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Skin tone control with palette and custom picker */}
-                <div className="space-y-3">
+                {/* Skin tone control */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/20 border border-accent/20">
                     <span>Skin Tone</span>
                     <Slider
@@ -473,12 +287,10 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
                       <div
                         key={tone}
                         onClick={() =>
-                          setAvatarConfig((prev) => ({ ...prev, skinTone: tone, skinToneHex: undefined }))
+                          setAvatarConfig((prev) => ({ ...prev, skinTone: tone }))
                         }
                         className={`w-7 h-7 rounded-full cursor-pointer border-2 ${
-                          avatarConfig.skinTone === tone && !avatarConfig.skinToneHex
-                            ? 'border-accent'
-                            : 'border-transparent'
+                          avatarConfig.skinTone === tone ? 'border-accent' : 'border-transparent'
                         }`}
                         style={{
                           backgroundColor: ['#F5DEB3', '#DEB887', '#CD853F', '#A0522D', '#8B4513', '#654321'][tone - 1],
@@ -486,31 +298,9 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
                       />
                     ))}
                   </div>
-                  {/* Custom skin colour picker */}
-                  <div className="flex items-center gap-3 px-4">
-                    <span className="text-sm">Custom</span>
-                    <input
-                      type="color"
-                      value={avatarConfig.skinToneHex ?? ['#F5DEB3', '#DEB887', '#CD853F', '#A0522D', '#8B4513', '#654321'][avatarConfig.skinTone - 1]}
-                      onChange={(e) =>
-                        setAvatarConfig((prev) => ({ ...prev, skinToneHex: e.target.value }))
-                      }
-                      className="w-8 h-8 p-0 border-2 border-accent/20 rounded-full"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="glass border-accent/20"
-                      onClick={() =>
-                        setAvatarConfig((prev) => ({ ...prev, skinToneHex: undefined }))
-                      }
-                    >
-                      Reset
-                    </Button>
-                  </div>
                 </div>
                 {/* Hair colour control */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/20 border border-accent/20">
                     <span>Hair Color</span>
                     <Slider
@@ -528,44 +318,20 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
                       <div
                         key={colour}
                         onClick={() =>
-                          setAvatarConfig((prev) => ({ ...prev, hairColor: colour, hairColorHex: undefined }))
+                          setAvatarConfig((prev) => ({ ...prev, hairColor: colour }))
                         }
                         className={`w-7 h-7 rounded-full cursor-pointer border-2 ${
-                          avatarConfig.hairColor === colour && !avatarConfig.hairColorHex
-                            ? 'border-accent'
-                            : 'border-transparent'
+                          avatarConfig.hairColor === colour ? 'border-accent' : 'border-transparent'
                         }`}
                         style={{
-                          backgroundColor: hairPalette[colour - 1],
+                          backgroundColor: ['#000000', '#8B4513', '#DAA520', '#FF6347', '#9370DB', '#00CED1'][colour - 1],
                         }}
                       />
                     ))}
                   </div>
-                  {/* Custom hair colour picker */}
-                  <div className="flex items-center gap-3 px-4">
-                    <span className="text-sm">Custom</span>
-                    <input
-                      type="color"
-                      value={avatarConfig.hairColorHex ?? hairPalette[avatarConfig.hairColor - 1]}
-                      onChange={(e) =>
-                        setAvatarConfig((prev) => ({ ...prev, hairColorHex: e.target.value }))
-                      }
-                      className="w-8 h-8 p-0 border-2 border-accent/20 rounded-full"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="glass border-accent/20"
-                      onClick={() =>
-                        setAvatarConfig((prev) => ({ ...prev, hairColorHex: undefined }))
-                      }
-                    >
-                      Reset
-                    </Button>
-                  </div>
                 </div>
                 {/* Eye colour control */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/20 border border-accent/20">
                     <span>Eye Color</span>
                     <Slider
@@ -578,46 +344,22 @@ const AvatarProfile: NextPage<AvatarProfileProps> = ({ initialUser }) => {
                       step={1}
                     />
                   </div>
-                  <div className="flex gap-2 px-4">
-                    {range(5).map((colour) => (
-                      <div
-                        key={colour}
-                        onClick={() =>
-                          setAvatarConfig((prev) => ({ ...prev, eyeColor: colour, eyeColorHex: undefined }))
-                        }
-                        className={`w-7 h-7 rounded-full cursor-pointer border-2 ${
-                          avatarConfig.eyeColor === colour && !avatarConfig.eyeColorHex
-                            ? 'border-accent'
-                            : 'border-transparent'
-                        }`}
-                        style={{
-                          backgroundColor: ['#000000', '#8B4513', '#228B22', '#4169E1', '#9370DB'][colour - 1],
-                        }}
-                      />
-                    ))}
-                  </div>
-                  {/* Custom eye colour picker */}
-                  <div className="flex items-center gap-3 px-4">
-                    <span className="text-sm">Custom</span>
-                    <input
-                      type="color"
-                      value={avatarConfig.eyeColorHex ?? ['#000000', '#8B4513', '#228B22', '#4169E1', '#9370DB'][avatarConfig.eyeColor - 1]}
-                      onChange={(e) =>
-                        setAvatarConfig((prev) => ({ ...prev, eyeColorHex: e.target.value }))
-                      }
-                      className="w-8 h-8 p-0 border-2 border-accent/20 rounded-full"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="glass border-accent/20"
-                      onClick={() =>
-                        setAvatarConfig((prev) => ({ ...prev, eyeColorHex: undefined }))
-                      }
-                    >
-                      Reset
-                    </Button>
-                  </div>
+                    <div className="flex gap-2 px-4">
+                      {range(5).map((colour) => (
+                        <div
+                          key={colour}
+                          onClick={() =>
+                            setAvatarConfig((prev) => ({ ...prev, eyeColor: colour }))
+                          }
+                          className={`w-7 h-7 rounded-full cursor-pointer border-2 ${
+                            avatarConfig.eyeColor === colour ? 'border-accent' : 'border-transparent'
+                          }`}
+                          style={{
+                            backgroundColor: ['#000000', '#8B4513', '#228B22', '#4169E1', '#9370DB'][colour - 1],
+                          }}
+                        />
+                      ))}
+                    </div>
                 </div>
               </CardContent>
             </Card>
