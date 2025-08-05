@@ -1,3 +1,4 @@
+// src/lib/supabaseClient.js
 import { createBrowserSupabaseClient } from '@supabase/ssr'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
