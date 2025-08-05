@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+// src/integrations/supabase/types.ts
+
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
 export type Json =
   | string
   | number
@@ -7,8 +12,12 @@ export type Json =
   | Json[]
 
 export type Database = {
+<<<<<<< HEAD
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+=======
+  // Allows to automatically instantiate createClient with right options
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
@@ -42,12 +51,22 @@ export type Tables<
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
+<<<<<<< HEAD
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+=======
+    ? keyof (
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"]
+      )
+    : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? DefaultSchemaTableNameOrOptions
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
+<<<<<<< HEAD
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
@@ -58,6 +77,16 @@ export type Tables<
         DefaultSchema["Views"])
     ? (DefaultSchema["Tables"] &
         DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+=======
+  ? (
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"]
+    )[TableName] extends { Row: infer R }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
         Row: infer R
       }
       ? R
@@ -72,6 +101,11 @@ export type TablesInsert<
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+<<<<<<< HEAD
+=======
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchemaTableNameOrOptions
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
@@ -97,6 +131,11 @@ export type TablesUpdate<
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+<<<<<<< HEAD
+=======
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchemaTableNameOrOptions
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
@@ -122,6 +161,11 @@ export type Enums<
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+<<<<<<< HEAD
+=======
+    : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchemaEnumNameOrOptions
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
@@ -129,6 +173,7 @@ export type Enums<
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+<<<<<<< HEAD
     : never
 
 export type CompositeTypes<
@@ -153,3 +198,6 @@ export const Constants = {
     Enums: {},
   },
 } as const
+=======
+    : n
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5

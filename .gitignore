@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -17,8 +18,49 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+=======
+# === Logs ===
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# === Dependencies ===
+node_modules/
+
+# === Build outputs ===
+dist/
+dist-ssr/
+
+# === Vite environment files ===
+.env
+.env.local
+.env.*.local
+
+# === Local overrides (not shared) ===
+*.local
+
+# === OS generated ===
+.DS_Store
+Thumbs.db
+
+# === IDE / Editor ===
+.vscode/
+!.vscode/extensions.json
+.idea/
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+<<<<<<< HEAD
+=======
+
+# === Optional: lockfiles if you wish to ignore them ===
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+>>>>>>> b48370fd28be94b666d23e8c349f60322336ffc5
