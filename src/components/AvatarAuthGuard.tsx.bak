@@ -1,0 +1,41 @@
+import React, { useState, useEffect, FormEvent } from 'react'
+import { supabase } from '../lib/supabaseClient'
+import AvatarProfile from "../pages/AvatarProfile";
+
+export default function AvatarAuthGuard() {
+  const [session, setSession] = useState<any>(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function handleLogin(e: FormEvent) {
+    e.preventDefault()
+    setMessage('Logging in…')
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setMessage(`❌ ${error.message}`)
+  }
+
+  if (!session) {
+    return (
+      <div className="max-w-sm mx-auto p-6 bg-[var(--bg-glass)] glass rounded-2xl shadow">
+        <h2 className="text-xl font-bold mb-4">Avatar Login</h2>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input type="email" placeholder="Email" className="w-full p-2 rounded" value={email} onChange={e => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Password" className="w-full p-2 rounded" value={password} onChange={e => setPassword(e.target.value)} required />
+          <button type="submit" className="w-full p-2 rounded bg-[var(--primary)] text-white">Log In</button>
+        </form>
+        {message && <p className="mt-4 text-center">{message}</p>}
+      </div>
+    )
+  }
+
+  return <AvatarProfile />
+}
